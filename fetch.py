@@ -1,31 +1,56 @@
+from __future__ import print_function
 import requests
 import json
 from data import *
 import threading
 
+import time, requests, json
 
-NODE_URL = "http://127.0.0.1:YOUR_RPC_PORT"  # Enter port number for coins rpc port
-NODE_USER = "YOUR_USERNAME"
-NODE_PASSWORD = "YOUR_PASSWORD"
+class RPCHost(object):
+    def __init__(self, url):
+        self._session = requests.Session()
+        self._url = url
+        self._headers = {'content-type': 'application/json'}
+    def call(self, rpcMethod, *params):
+        payload = json.dumps({"method": rpcMethod, "params": list(params), "jsonrpc": "2.0"})
+        tries = 5
+        hadConnectionFailures = False
+        while True:
+            try:
+                response = self._session.post(self._url, headers=self._headers, data=payload)
+            except requests.exceptions.ConnectionError:
+                tries -= 1
+                if tries == 0:
+                    raise Exception('Failed to connect for remote procedure call.')
+                hadFailedConnections = True
+                print("Couldn't connect for remote procedure call, will sleep for five seconds and then try again ({} more tries)".format(tries))
+                time.sleep(10)
+            else:
+                if hadConnectionFailures:
+                    print('Connected for remote procedure call after retry.')
+                break
+        if not response.status_code in (200, 500):
+            raise Exception('RPC connection failure: ' + str(response.status_code) + ' ' + response.reason)
+        responseJSON = response.json()
+        if 'error' in responseJSON and responseJSON['error'] != None:
+            raise Exception('Error in RPC call: ' + str(responseJSON['error']))
+        return responseJSON['result']
 
-# Makes rpc connection
+
+# The RPC username and RPC password MUST match the one in your bitcoin.conf file
+
+serverURL = 'http://rpcuser:rpcpassword@127.0.0.1:rpcport'
 
 
-def rpc(method, params=[]):
-    payload = json.dumps({
-        "jsonrpc": "1.0",
-        "method": method,
-        "params": params,
-    })
-    response = requests.post(NODE_URL, auth=(
-        NODE_USER, NODE_PASSWORD), data=payload).json()
-    return response
+#Using the class defined in the bitcoin_rpc_class.py
+
+host = RPCHost(serverURL)
 
 # Gets a new address
 
-
-def getAddress():
-    WalletResponse = rpc('getnewaddress')
+def getAddress(userId):
+ 
+    WalletResponse = host.call('getnewaddress', userId)
     print(WalletResponse)
     return WalletResponse
 
@@ -33,7 +58,15 @@ def getAddress():
 
 
 def getBalance(userId):
-    WalletBalance = rpc('getbalance', [""+userId+""])
+    WalletBalance = host.call('getbalance', userId)
+    print(WalletBalance)
+    return WalletBalance
+    
+# Gets Main Wallet Balance balance
+
+
+def getMainBalance():
+    WalletBalance = host.call('getbalance', 'CHANGEME-PayoutWALLETACCOUNT')
     print(WalletBalance)
     return WalletBalance
 
@@ -41,7 +74,7 @@ def getBalance(userId):
 
 
 def getNewAddy(userId):
-    NewAddy = rpc('getaccountaddress', [""+str(userId)+""])
+    NewAddy = host.call('getaccountaddress', userId)
     print(NewAddy)
     return NewAddy
 
@@ -49,8 +82,8 @@ def getNewAddy(userId):
 
 
 def sendCoins(uid, toAddress, amount):
-    sendTx = rpc('sendfrom', [uid, toAddress, amount])
-    # sendTx = rpc('sendfrom', [""+str(uid) + ' ' + str(toAddress) + ' ' + str(amount) + ""])
+    #sendTx = host.call('sendfrom', [uid, toAddress, amount])
+    sendTx = host.call('sendfrom', uid, toAddress, float(amount))
     print(sendTx)
     return sendTx
 
@@ -58,7 +91,7 @@ def sendCoins(uid, toAddress, amount):
 
 
 def updateBalances():
-    updateWallets = rpc('listaccounts')
+    updateWallets = host.call('listaccounts')
     # print(json.dumps(updateWallets['result'], indent=4))
     newBalance = updateWallets['result']
     for i in updateWallets['result']:
