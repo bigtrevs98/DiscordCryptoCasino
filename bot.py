@@ -44,14 +44,14 @@ async def help(ctx):
     \n**$balance** - Check your wallet balance.
     \n**$casino** - Check the Casino Payout wallet balance.
     \n**$address** - Returns the users Wallet address.
-    \n**$coin** - Starts a game of coinflip. Example: ' $coin 1 Heads ' where 1 is the amount you wish to bet.
-    \n**$jack** - Starts a game of blackjack. Example: ' $jack 10 ' where 10 is the amount you wish to bet.
+    \n**$coinflip** - Starts a game of coinflip. Example: ' $coin 1 Heads ' where 1 is the amount you wish to bet.
+    \n**$blackjack** - Starts a game of blackjack. Example: ' $jack 10 ' where 10 is the amount you wish to bet.
     \n**$dice** - Starts a game of dice. Example: ' $dice 10 6 ' where 10 is the amount you wish to bet and 6 is the amount to roll under in order to win.
-    \n**$pay** - Returns a list of payouts for Dice depending on what the 'under' is set at.
+    \n**$payouts** - Returns a list of payouts for Dice depending on what the 'under' is set at.
     """)
 
 @bot.command()
-async def pay(ctx):
+async def payouts(ctx):
     tuid = "<@" + str(ctx.author.id) + ">"
     await ctx.channel.send(tuid + """ 
     ```\n**Dice Payouts:** 
@@ -153,7 +153,7 @@ async def send(ctx, arg1, arg2):
 
 # Start a Game of Coinflip
 @bot.command()
-async def coin(ctx, bet, userChoice):
+async def coinflip(ctx, bet, userChoice):
   
     uid = str(ctx.author.id)
     tuid = "<@" + str(ctx.author.id) + ">"
@@ -229,11 +229,11 @@ async def get_input_of_type(func, ctx):
 
 # Start a game of BlackJack
 @bot.command()
-async def jack(ctx, bet):
+async def blackjack(ctx, bet):
     userAddy = getNewAddy(str(ctx.author.id))
     toPlay = getBalance(str(ctx.author.id))
     newBalance = toPlay
-
+    Ace = False
     tuid = "<@" + str(ctx.author.id) + ">"
     
     if float(bet) > MaxBlackJackBet:
@@ -264,7 +264,12 @@ async def jack(ctx, bet):
     
     cValue = {'Ace': 1, 'Two': 2, 'Three': 3, 'Four': 4, 'Five': 5, 'Six': 6,
               'Seven': 7, 'Eight': 8, 'Nine': 9, 'Ten': 10, 'Jack': 10, 'Queen': 10, 'King': 10}
-    cSuit = {'Hearts': 0, 'Spades': 1, 'Clubs': 2, 'Diamonds': 3}
+    cSuit = {'Hearts': 0, 'Spades': 1, 'Clubs': 2, 'Diamonds': 3, 
+              'Hearts': 4, 'Spades': 5, 'Clubs': 6, 'Diamonds': 7, 
+              'Hearts': 8, 'Spades': 9, 'Clubs': 10, 'Diamonds': 11, 
+              'Hearts': 12, 'Spades': 13, 'Clubs': 14, 'Diamonds': 15, 
+              'Hearts': 16, 'Spades': 17, 'Clubs': 18, 'Diamonds': 19, 
+              'Hearts': 20, 'Spades': 21, 'Clubs': 22, 'Diamonds': 23}
     deck = [] # Empt Deck Array
     dCards = [] # Empty Dealer Cards Array
     pCards = [] # Empty Player Cards Array
@@ -292,6 +297,7 @@ async def jack(ctx, bet):
     
     if getCardValue(dCards[0]) == 1:
         dealerTotal = dealerTotal + 10
+        
         #Check if dealer has Ace as first cards, if so, Ace = 11 - If 2 Aces are drawn, total is 12
     if getCardValue(dCards[1]) == 1:
         dealerTotal = dealerTotal + 10
@@ -306,11 +312,13 @@ async def jack(ctx, bet):
         playerTotal = pFirstCard + pSecondCard # Sum of Players first and second card
    
     if getCardValue(pCards[0]) == 1:
-        playerTotal = playerTotal + 10
+        playerTotal += 10
+        Ace = True
         #Check it player has Ace as first 2 cards, if so, Ace = 11 - If 2 Aces are drawn, total is 12
 
     if getCardValue(pCards[1]) == 1:
-        playerTotal = playerTotal + 10
+        playerTotal += 10
+        Ace = True
     if playerTotal == 22:
         playerTotal = 12
     # Determine if user wants to Hit or Stay
@@ -332,16 +340,18 @@ async def jack(ctx, bet):
             newCard = getCardValue(pCards[cardNum])
             
             playerTotal += newCard
-            botMessage = await ctx.channel.send(tuid + "\nDealer Has **HIDDEN** & " + '**' + dCards[0] + '**'
-             + "\nYou Have " + '**' + str(pCards) + '**' + ' : **' + str(playerTotal) + '**' + "\n**Stay**: [S] or **Hit**: [H]?")
+            if Ace == True and playerTotal > 21:
+                playerTotal -= 10
             
             if getCardValue(pCards[cardNum]) == 1 and (playerTotal + 10) <= 21:
-                playerTotal = playerTotal + 10 
+                playerTotal += 10 
                 
-            if getCardValue(pCards[cardNum]) == 1 and (playerTotal + 10) > 21:
+            if getCardValue(pCards[cardNum]) == 1 and (playerTotal + 10) >= 22:
                 
                 playerTotal = playerTotal
-                
+            
+            botMessage = await ctx.channel.send(tuid + "\nDealer Has **HIDDEN** & " + '**' + dCards[0] + '**'
+             + "\nYou Have " + '**' + str(pCards) + '**' + ' : **' + str(playerTotal) + '**' + "\n**Stay**: [S] or **Hit**: [H]?")    
             
 
             
@@ -363,9 +373,7 @@ async def jack(ctx, bet):
                 
                 botMessage = await ctx.channel.send("**Please wait 5 seconds before placing a new bet**")
                 time.sleep(5)
-                await botMessage.delete()
-                await ctx.message.delete()
-                await ctx.channel.purge(limit=10)
+                
                 botMessage = await ctx.channel.send("You can now place a new bet.")
                 return
         
@@ -386,7 +394,7 @@ async def jack(ctx, bet):
             if (dealerTotal - mytotal) == 1 and (dealerTotal + 10) <= 21:
                 dTotal = dTotal + 10 
                 dealerTotal = dTotal
-            if (dealerTotal - mytotal) == 1 and (dealerTotal + 10) > 21:
+            if (dealerTotal - mytotal) == 1 and (dealerTotal + 10) >= 22:
                 dealerTotal = dealerTotal
             
                 
@@ -402,9 +410,7 @@ async def jack(ctx, bet):
                
                 botMessage = await ctx.channel.send("**Please wait 5 seconds before placing a new bet**")
                 time.sleep(5)
-                await botMessage.delete()
-                await ctx.message.delete()
-                await ctx.channel.purge(limit=10)
+                
                 botMessage = await ctx.channel.send("You can now place a new bet.")
                 return
             
@@ -418,9 +424,7 @@ async def jack(ctx, bet):
                     
                     botMessage = await ctx.channel.send("**Please wait 5 seconds before placing a new bet**")
                     time.sleep(5)
-                    await botMessage.delete()
-                    await ctx.message.delete()
-                    await ctx.channel.purge(limit=10)
+                    
                     botMessage = await ctx.channel.send("You can now place a new bet.")
                     return
                 elif dealerTotal > playerTotal:
@@ -431,9 +435,7 @@ async def jack(ctx, bet):
                     
                     botMessage = await ctx.channel.send("**Please wait 5 seconds before placing a new bet**")
                     time.sleep(5)
-                    await botMessage.delete()
-                    await ctx.message.delete()
-                    await ctx.channel.purge(limit=10)
+                    
                     botMessage = await ctx.channel.send("You can now place a new bet.")
                     return
             
@@ -445,11 +447,10 @@ async def jack(ctx, bet):
                 updateBalances()
                 botMessage = await ctx.channel.send("**Please wait 5 seconds before placing a new bet**")
                 time.sleep(5)
-                await botMessage.delete()
-                await ctx.message.delete()
-                await ctx.channel.purge(limit=10)
+                
                 botMessage = await ctx.channel.send("You can now place a new bet.")
                 return 
+          
          
 # Start a game of Dice
 @bot.command()
